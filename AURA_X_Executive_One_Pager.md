@@ -1,14 +1,20 @@
 # AURA-X: EXECUTIVE ONE-PAGER
 **AI-Powered Autonomous Exploration Rover for Hostile & GPS-Denied Environments**
-*Grand Hackathon Evaluation • Sangola Engineering Cohort • October 2026*
+*Grand Hackathon Evaluation • October 2026*
+
+**Team Members:**
+- **Soham Vinchu** — Firmware & Embedded Systems Lead
+- **Nishita Patil** — Hardware & RF Communication Lead
+- **Vedant Mali** — AI Gateway & Cloud Vision Lead
+- **Bhakti Sonawane** — Systems Integration & Safety Lead
 
 ---
 
 ### 1. THE PROBLEM: The Fragility of Remote Reconnaissance
 First responders and industrial maintenance personnel face lethal risks when manually entering collapsed structural voids, petrochemical ducts, and subterranean utility tunnels. Existing robotic solutions suffer from a dangerous architectural flaw:
-- **RF Blindness:** Reinforced concrete and rubble attenuate 2.4 GHz Wi-Fi within 15–20 meters.
+- **RF Blindness:** Reinforced concrete and rubble attenuate 2.4 GHz Wi-Fi within 15 meters.
 - **The Cloud Latency Trap:** Offloading motor obstacle avoidance to remote cloud APIs introduces unpredictable 1–3 second network round-trips, causing kinetic collisions before responses return.
-- **Prohibitive Cost Barrier:** Military-grade inspection rovers cost $15,000 to $50,000+, making expendable tactical deployment impossible for most response agencies.
+- **The Human Risk:** First responders are still forced to physically enter hazardous voids.
 
 ---
 
@@ -40,34 +46,27 @@ AURA-X solves this paradox through an **asymmetric, decoupled architecture** tha
 
 | Feature / Metric | Hobbyist / FPV Bots | Cloud-Tethered Bots | Industrial Mil-Spec | **AURA-X Architecture** |
 |---|---|---|---|---|
-| **RF Penetration** | Poor (<25m in rubble) | Severe attenuation | Proprietary Sub-GHz | **Dual: 433MHz LoRa + 2.4GHz Wi-Fi** |
+| **RF Penetration** | Fails in Rubble (<20m) | Severe attenuation | Proprietary Sub-GHz | **Dual: 433MHz LoRa + 2.4GHz Wi-Fi** |
 | **Control Latency** | Low (<50ms manual) | 1.5s–3.0s (API delay) | Real-time edge compute | **Zero (Local FreeRTOS Kernel)** |
-| **Cloud Dependency** | None (Manual only) | 100% Critical | None (Heavy Jetson) | **Decoupled (Advisory Only)** |
-| **Total Unit Cost** | $80 – $150 | $400 – $900 | $20,000 – $60,000+ | **< $135 USD (Accessible COTS)** |
+| **Cloud Dependency** | None (Manual only) | 100% Critical | None (Heavy compute) | **Decoupled (Advisory Only)** |
 | **Fail-Safe Resilience**| Lost signal = stranded | Network drop = crash | High (Proprietary) | **5-Tier Graceful Failover** |
-| **Cognitive Vision** | None (Human eyes only) | Unbounded LLM loop | Local CV / No LLM | **Schema-Constrained (M-001)** |
+| **Cognitive Vision** | None (Human eyes only) | Unconstrained / Risky | Basic CV ($30k+ cost) | **Schema-Constrained (M-001)** |
 
 ---
 
 ### 4. RIGOROUS LAB BENCH VALIDATION (12-Point Test Suite)
 - **T-01 Motor Bench Test:** Verified zero MCU brownout resets during peak startup current surges. **[PASSED]**
 - **T-02 Hardware Emergency Stop:** Hardwired cutoff dropped motor enable lines in **0 ms hardware latency**. **[PASSED]**
-- **T-03 Ultrasonic Safety Envelope:** Halted reliably at **28±3 cm** before obstacle contact at 0.3 m/s. **[PASSED]**
+- **T-03 Ultrasonic Safety Envelope:** Halted reliably at **28 cm** before obstacle contact at 0.3 m/s. **[PASSED]**
 - **T-05 LoRa Packet Delivery:** Achieved **>98% packet delivery ratio** across multi-wall indoor barriers. **[VERIFIED]**
 - **T-06 Command Freshness Lease:** Severing transmission triggered automatic safe braking in **<1.0 s**. **[VERIFIED]**
 - **T-08/09 Degraded Failover:** Disconnecting Wi-Fi / Cloud maintained **100% telemetry and local obstacle stop**. **[VERIFIED]**
 
 ---
 
-### 5. BILL OF MATERIALS & COMMERCIAL SCALABILITY
-- **Total Prototype Build Cost:** **~$103.00 USD** (ESP32: $6, ESP32-CAM: $8, SX1278 LoRa Pair: $14, Chassis/Motors: $25, Sensors/Power: $30, Battery/Hardware: $20).
-- **Scalability:** 1/100th the cost of commercial inspection units allows multi-rover swarm deployments and expendable high-risk tactical scouting.
-
----
-
-### 6. WHY AURA-X DESERVES TO WIN
+### 5. WHY AURA-X DESERVES TO WIN
 1. **Engineered for Real-World Fault Modes:** Not a "happy-path" demo. Tested against Wi-Fi drops, API stalls, and sensor failures.
 2. **Proven Hardware-Level Safety:** Generative AI cannot hallucinate a motor crash; firmware enforces hard clearance boundaries.
-3. **Live Demonstration Ready:** Interactive Ground Control Station live on Port 8000 with real-time telemetry, video HUD, and allowlist validation.
+3. **Live Demonstration Ready:** Interactive Ground Control Station live with real-time telemetry, video HUD, and allowlist validation.
 
 > *"Intelligence in the cloud. Autonomy at the edge. Absolute safety in the firmware."*
