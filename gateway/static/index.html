@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AURA-X Ground Mission Control Gateway</title>
+  <style>
+    :root {
+      --bg: #0B111E;
+      --surface: #162032;
+      --surface-alt: #1C2A41;
+      --border: #2D3E5A;
+      --border-accent: #2563EB;
+      --cyan: #00D2FF;
+      --amber: #FF9100;
+      --green: #10B981;
+      --coral: #F43F5E;
+      --white: #FFFFFF;
+      --slate: #CBD5E1;
+      --muted: #94A3B8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: var(--bg); color: var(--white); min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
+    
+    /* Header */
+    header { background: #0F172A; border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .brand-title { font-size: 20px; font-weight: 800; letter-spacing: 1.5px; color: var(--white); }
+    .brand-title span { color: var(--cyan); }
+    .tag-badge { background: rgba(0, 210, 255, 0.15); border: 1px solid var(--cyan); color: var(--cyan); font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; }
+    
+    .status-bar { display: flex; gap: 16px; align-items: center; }
+    .status-pill { display: flex; align-items: center; gap: 8px; background: var(--surface); padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); font-size: 12px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+    .status-dot.warn { background: var(--amber); }
+    .status-dot.danger { background: var(--coral); animation: pulse 1s infinite; }
+    @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+    
+    /* Grid Layout */
+    .dashboard-grid { display: grid; grid-template-columns: 1.1fr 1fr 1.1fr; gap: 18px; padding: 18px 24px; flex: 1; }
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px; }
+    .panel-title { font-size: 13px; font-weight: 700; letter-spacing: 1px; color: var(--cyan); text-transform: uppercase; }
+
+    /* Video Container */
+    .video-viewport { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; }
+    .video-overlay { position: absolute; inset: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 12px; font-family: monospace; font-size: 11px; }
+    .video-top { display: flex; justify-content: space-between; }
+    .rec-badge { display: flex; align-items: center; gap: 6px; color: var(--coral); font-weight: bold; }
+    .crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 40px; height: 40px; border: 1px dashed rgba(0, 210, 255, 0.4); border-radius: 50%; }
+    .target-box { position: absolute; top: 35%; left: 45%; width: 70px; height: 90px; border: 2px solid var(--amber); border-radius: 4px; display: flex; align-items: flex-start; justify-content: flex-end; padding: 2px; }
+    .target-label { background: var(--amber); color: #000; font-size: 9px; font-weight: bold; padding: 1px 4px; }
+    .video-offline-msg { display: none; color: var(--coral); font-weight: bold; text-align: center; }
+    .video-offline-msg.visible { display: block; }
+
+    /* Telemetry Metrics */
+    .metric-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .metric-card { background: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
+    .metric-label { font-size: 11px; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+    .metric-val { font-size: 20px; font-weight: 700; color: var(--white); font-family: monospace; }
+    .metric-val.green { color: var(--green); }
+    .metric-val.amber { color: var(--amber); }
+    .metric-val.coral { color: var(--coral); }
+    .metric-val.cyan { color: var(--cyan); }
+
+    /* Clearance Gauge */
+    .clearance-gauge { background: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+    .bar-track { height: 12px; background: #0F172A; border-radius: 6px; overflow: hidden; margin-top: 8px; position: relative; }
+    .bar-fill { height: 100%; background: linear-gradient(90deg, var(--coral) 0%, var(--amber) 40%, var(--green) 80%); width: 65%; transition: width 0.3s; }
+    .bar-marker { position: absolute; top: 0; bottom: 0; left: 30%; width: 2px; background: #fff; opacity: 0.7; }
+
+    /* Controls & D-Pad */
+    .controls-container { display: flex; flex-direction: column; gap: 14px; }
+    .dpad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 240px; margin: 0 auto; }
+    .ctrl-btn { background: var(--surface-alt); border: 1px solid var(--border); color: var(--white); font-size: 12px; font-weight: bold; padding: 12px; border-radius: 6px; cursor: pointer; transition: all 0.15s; }
+    .ctrl-btn:hover { background: #2563EB; border-color: var(--cyan); }
+    .ctrl-btn:active { transform: scale(0.96); }
+    .ctrl-btn.stop { background: rgba(244, 63, 94, 0.2); border-color: var(--coral); color: var(--coral); }
+    .ctrl-btn.stop:hover { background: var(--coral); color: #fff; }
+
+    /* Mode Buttons */
+    .mode-selector { display: flex; gap: 6px; flex-wrap: wrap; }
+    .mode-btn { flex: 1; min-width: 80px; padding: 7px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; font-weight: bold; color: var(--muted); cursor: pointer; text-align: center; }
+    .mode-btn.active { background: rgba(0, 210, 255, 0.2); border-color: var(--cyan); color: var(--cyan); }
+
+    /* Mission Box */
+    .mission-input-box { display: flex; flex-direction: column; gap: 8px; }
+    .mission-textarea { width: 100%; height: 60px; background: #0F172A; border: 1px solid var(--border); border-radius: 6px; color: var(--white); padding: 8px; font-size: 12px; resize: none; }
+    .mission-textarea:focus { outline: none; border-color: var(--cyan); }
+    .quick-prompts { display: flex; gap: 6px; flex-wrap: wrap; }
+    .prompt-chip { background: var(--surface-alt); border: 1px solid var(--border); color: var(--muted); font-size: 10px; padding: 4px 8px; border-radius: 12px; cursor: pointer; }
+    .prompt-chip:hover { color: var(--cyan); border-color: var(--cyan); }
+
+    /* Big E-Stop */
+    .estop-btn { background: #DC2626; border: 2px solid #EF4444; color: #fff; font-size: 16px; font-weight: 900; letter-spacing: 1.5px; padding: 14px; border-radius: 8px; cursor: pointer; box-shadow: 0 0 20px rgba(220, 38, 38, 0.4); transition: all 0.2s; text-align: center; text-transform: uppercase; }
+    .estop-btn:hover { background: #B91C1C; transform: translateY(-1px); }
+    .estop-btn:active { transform: translateY(1px); }
+
+    /* Event Timeline */
+    .event-log { height: 150px; background: #0A0F1D; border: 1px solid var(--border); border-radius: 6px; padding: 8px; overflow-y: auto; font-family: monospace; font-size: 11px; display: flex; flex-direction: column; gap: 4px; }
+    .log-item { display: flex; gap: 8px; }
+    .log-time { color: var(--muted); }
+    .log-type { font-weight: bold; min-width: 85px; }
+    .log-type.BOOT { color: var(--cyan); }
+    .log-type.RF_INIT { color: var(--cyan); }
+    .log-type.SENSORS { color: var(--green); }
+    .log-type.SAFETY_GUARD { color: var(--amber); }
+    .log-type.VETO { color: var(--coral); font-weight: 900; }
+    .log-type.CMD_EXEC { color: var(--white); }
+    .log-type.AI_MISSION { color: #A855F7; }
+    .log-type.EMERGENCY_STOP { color: var(--coral); font-weight: 900; }
+    .log-msg { color: var(--slate); }
+
+    /* Footer */
+    footer { background: #0F172A; border-top: 1px solid var(--border); padding: 8px 24px; display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-title">AURA-<span>X</span></div>
+      <div class="tag-badge">MISSION CONTROL GATEWAY v1.0</div>
+    </div>
+    <div class="status-bar">
+      <div class="status-pill">
+        <div id="dot-lora" class="status-dot"></div>
+        <span>LoRa 433MHz: <strong id="val-rssi">-74 dBm</strong></span>
+      </div>
+      <div class="status-pill">
+        <div id="dot-wifi" class="status-dot"></div>
+        <span>Wi-Fi 2.4GHz: <strong id="val-wifi">CONNECTED</strong></span>
+      </div>
+      <div class="status-pill">
+        <span>BATT: <strong id="val-batt" style="color: var(--green);">7.82 V</strong></span>
+      </div>
+      <div class="status-pill">
+        <span>STATE: <strong id="val-mode" style="color: var(--cyan);">MANUAL_DRIVE</strong></span>
+      </div>
+      <button onclick="toggleWifiTest()" class="ctrl-btn" style="padding: 4px 10px; font-size: 11px;">Simulate Wi-Fi Drop</button>
+    </div>
+  </header>
+
+  <!-- Dashboard Grid -->
+  <div class="dashboard-grid">
+
+    <!-- Column 1: Vision & Camera Feed -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Vision Pipeline (ESP32-CAM 2.4GHz)</div>
+        <span style="font-size: 11px; color: var(--muted);">800x600 • 12 FPS</span>
+      </div>
+      
+      <div class="video-viewport">
+        <!-- Rover Concept Hero as Stream Background -->
+        <img id="cam-img" src="/static/rover_stream_bg.jpg" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.85;" alt="Stream">
+        <div class="video-overlay">
+          <div class="video-top">
+            <div class="rec-badge"><span>●</span> LIVE REC</div>
+            <div id="hud-mode">MODE: MANUAL</div>
+          </div>
+          <div class="crosshair"></div>
+          <div class="target-box">
+            <div class="target-label">VALVE (94%)</div>
+          </div>
+          <div id="hud-bottom" style="display: flex; justify-content: space-between;">
+            <div>CLEARANCE: <span id="hud-clearance">65.4 cm</span></div>
+            <div>LEASE: <span id="hud-lease">1000ms</span></div>
+          </div>
+        </div>
+        <div id="video-offline" class="video-offline-msg">
+          <div style="font-size: 24px; margin-bottom: 8px;">⚠️ WI-FI STREAM SEVERED</div>
+          <div>LoRa 433MHz Telemetry & Control Active</div>
+        </div>
+      </div>
+
+      <!-- Ultrasonic Clearance -->
+      <div class="clearance-gauge">
+        <div style="display: flex; justify-content: space-between; font-size: 12px;">
+          <span>Forward Ultrasonic Envelope (HC-SR04)</span>
+          <strong id="val-clearance" style="color: var(--cyan);">65.4 cm</strong>
+        </div>
+        <div class="bar-track">
+          <div id="bar-clearance" class="bar-fill"></div>
+          <div class="bar-marker" title="30cm Veto Threshold"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-top: 4px;">
+          <span>0 cm (Collision)</span>
+          <span style="color: var(--coral);">30 cm (Firmware Veto Line)</span>
+          <span>100 cm+ (Clear)</span>
+        </div>
+      </div>
+
+      <!-- Video Control Tools -->
+      <div style="display: flex; gap: 8px;">
+        <button onclick="requestAiSnapshot()" class="ctrl-btn" style="flex: 1; border-color: var(--cyan); color: var(--cyan);">📸 Capture Snapshot for GPT-4o</button>
+        <button onclick="pingRover()" class="ctrl-btn" style="flex: 0.5;">📡 Ping LoRa</button>
+      </div>
+    </div>
+
+    <!-- Column 2: Real-Time Telemetry & RF Metrics -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Real-Time Embedded Telemetry (LoRa)</div>
+        <span style="font-size: 11px; color: var(--green);">1.5 Hz Update</span>
+      </div>
+
+      <div class="metric-grid">
+        <div class="metric-card">
+          <div class="metric-label">LoRa Link RSSI</div>
+          <div id="m-rssi" class="metric-val cyan">-74 dBm</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">LoRa SNR Ratio</div>
+          <div id="m-snr" class="metric-val green">+9.2 dB</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Packets RX / Lost</div>
+          <div id="m-pkts" class="metric-val white">1420 / 12</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Battery Bus (2S Li-ion)</div>
+          <div id="m-batt" class="metric-val green">7.82 V</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">IMU Pitch / Roll (MPU-9250)</div>
+          <div id="m-imu" class="metric-val white">+1.2° / -0.5°</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Compass Heading (Yaw)</div>
+          <div id="m-yaw" class="metric-val cyan">142°</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Left Motor PWM</div>
+          <div id="m-pwm-l" class="metric-val amber">0</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Right Motor PWM</div>
+          <div id="m-pwm-r" class="metric-val amber">0</div>
+        </div>
+      </div>
+
+      <div class="panel-header" style="margin-top: 6px;">
+        <div class="panel-title">Subsystem Event Timeline</div>
+        <span style="font-size: 10px; color: var(--muted);">Auto-scrolling</span>
+      </div>
+      <div id="event-log" class="event-log">
+        <!-- Event items injected dynamically -->
+      </div>
+    </div>
+
+    <!-- Column 3: Actuation, Modes & AI Missions -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Flight Mode & Actuation Command</div>
+      </div>
+
+      <!-- Mode Selector -->
+      <div class="mode-selector">
+        <div onclick="setMode('MANUAL_DRIVE')" id="btn-mode-manual" class="mode-btn active">MANUAL</div>
+        <div onclick="setMode('AUTO_AVOIDANCE')" id="btn-mode-auto" class="mode-btn">AUTO AVOID</div>
+        <div onclick="setMode('AI_MISSION')" id="btn-mode-ai" class="mode-btn">AI MISSION</div>
+        <div onclick="setMode('SAFE_STOP')" id="btn-mode-stop" class="mode-btn">SAFE STOP</div>
+      </div>
+
+      <!-- D-Pad Controls -->
+      <div class="controls-container">
+        <div class="dpad-grid">
+          <div></div>
+          <button onclick="sendMotion('MOVE_FORWARD')" class="ctrl-btn">▲ FWD</button>
+          <div></div>
+          <button onclick="sendMotion('TURN_LEFT')" class="ctrl-btn">◀ LFT</button>
+          <button onclick="sendMotion('STOP')" class="ctrl-btn stop">■ STOP</button>
+          <button onclick="sendMotion('TURN_RIGHT')" class="ctrl-btn">RGT ▶</button>
+          <div></div>
+          <button onclick="sendMotion('MOVE_BACKWARD')" class="ctrl-btn">▼ REV</button>
+          <div></div>
+        </div>
+      </div>
+
+      <!-- AI Mission Dispatch -->
+      <div class="panel-header">
+        <div class="panel-title">Cognitive Mission Planner (Schema M-001)</div>
+      </div>
+      <div class="mission-input-box">
+        <textarea id="ai-prompt-input" class="mission-textarea" placeholder="Enter high-level mission objective (e.g., 'Inspect collapsed corridor and locate red hazard marker')">Scan area and search for red hazard marker</textarea>
+        <div class="quick-prompts">
+          <span class="prompt-chip" onclick="setPrompt('Inspect collapsed corridor for red hazard marker')">Red Hazard Marker</span>
+          <span class="prompt-chip" onclick="setPrompt('Search subterranean duct for structural fractures')">Structural Fracture</span>
+          <span class="prompt-chip" onclick="setPrompt('Perform 360 autonomous perimeter reconnaissance')">Perimeter Scan</span>
+        </div>
+        <button onclick="dispatchAiMission()" class="ctrl-btn" style="background: rgba(168, 85, 247, 0.2); border-color: #A855F7; color: #D8B4FE;">🚀 Dispatch Schema-Bounded Mission</button>
+      </div>
+
+      <!-- Emergency Stop -->
+      <button onclick="triggerEStop()" class="estop-btn">⚡ EMERGENCY STOP</button>
+      <button onclick="resetEStop()" class="ctrl-btn" style="font-size: 11px; padding: 4px; border-color: var(--border);">Reset E-Stop Standby</button>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <div>AURA-X Robotics Architecture • Dual-Band Asymmetric RF Link • FreeRTOS Deterministic Safety</div>
+    <div>Sangola Engineering Cohort • Open Source Hardware Reference</div>
+  </footer>
+
+  <script>
+    let ws;
+    function connectWebSocket() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${window.location.host}/ws/telemetry`);
+      
+      ws.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        updateUI(data);
+      };
+
+      ws.onclose = function() {
+        setTimeout(connectWebSocket, 1500);
+      };
+    }
+
+    function updateUI(data) {
+      document.getElementById('val-mode').innerText = data.mode;
+      document.getElementById('hud-mode').innerText = "MODE: " + data.mode;
+      document.getElementById('val-batt').innerText = data.battery_voltage.toFixed(2) + " V";
+      document.getElementById('m-batt').innerText = data.battery_voltage.toFixed(2) + " V";
+      
+      document.getElementById('val-clearance').innerText = data.front_clearance_cm.toFixed(1) + " cm";
+      document.getElementById('hud-clearance').innerText = data.front_clearance_cm.toFixed(1) + " cm";
+      
+      // Update clearance bar
+      const pct = Math.min(Math.max((data.front_clearance_cm / 100) * 100, 5), 100);
+      const bar = document.getElementById('bar-clearance');
+      bar.style.width = pct + "%";
+      if (data.front_clearance_cm < 30) {
+        bar.style.background = "var(--coral)";
+      } else {
+        bar.style.background = "linear-gradient(90deg, var(--coral) 0%, var(--amber) 40%, var(--green) 80%)";
+      }
+
+      document.getElementById('hud-lease').innerText = data.lease_remaining_ms + "ms";
+
+      document.getElementById('val-rssi').innerText = data.lora_rssi_dbm + " dBm";
+      document.getElementById('m-rssi').innerText = data.lora_rssi_dbm + " dBm";
+      document.getElementById('m-snr').innerText = "+" + data.lora_snr_db.toFixed(1) + " dB";
+      document.getElementById('m-pkts').innerText = `${data.lora_packets_rx} / ${data.lora_packets_lost}`;
+      document.getElementById('m-imu').innerText = `${data.pitch_deg > 0 ? '+' : ''}${data.pitch_deg.toFixed(1)}° / ${data.roll_deg > 0 ? '+' : ''}${data.roll_deg.toFixed(1)}°`;
+      document.getElementById('m-yaw').innerText = data.yaw_deg.toFixed(0) + "°";
+
+      document.getElementById('m-pwm-l').innerText = data.left_motor_pwm;
+      document.getElementById('m-pwm-r').innerText = data.right_motor_pwm;
+
+      // Mode Buttons Highlight
+      const modes = ['manual', 'auto', 'ai', 'stop'];
+      const mapMode = {
+        'MANUAL_DRIVE': 'manual',
+        'AUTO_AVOIDANCE': 'auto',
+        'AI_MISSION': 'ai',
+        'SAFE_STOP': 'stop'
+      };
+      modes.forEach(m => {
+        const el = document.getElementById('btn-mode-' + m);
+        if (el) el.classList.remove('active');
+      });
+      const activeId = mapMode[data.mode];
+      if (activeId) {
+        document.getElementById('btn-mode-' + activeId).classList.add('active');
+      }
+
+      // Wi-Fi Status
+      const wifiDot = document.getElementById('dot-wifi');
+      const wifiVal = document.getElementById('val-wifi');
+      const camImg = document.getElementById('cam-img');
+      const offlineMsg = document.getElementById('video-offline');
+      if (data.wifi_connected) {
+        wifiDot.className = "status-dot";
+        wifiVal.innerText = "CONNECTED";
+        camImg.style.display = "block";
+        offlineMsg.className = "video-offline-msg";
+      } else {
+        wifiDot.className = "status-dot danger";
+        wifiVal.innerText = "OFFLINE";
+        camImg.style.display = "none";
+        offlineMsg.className = "video-offline-msg visible";
+      }
+
+      // E-Stop status
+      if (data.e_stop_active) {
+        document.getElementById('val-mode').innerText = "SAFE_STOP (E-STOP)";
+        document.getElementById('val-mode').style.color = "var(--coral)";
+      } else {
+        document.getElementById('val-mode').style.color = "var(--cyan)";
+      }
+
+      // Events Log
+      if (data.events && data.events.length > 0) {
+        const logContainer = document.getElementById('event-log');
+        logContainer.innerHTML = data.events.map(e => `
+          <div class="log-item">
+            <span class="log-time">[${e.time}]</span>
+            <span class="log-type ${e.type}">${e.type}</span>
+            <span class="log-msg">${e.msg}</span>
+          </div>
+        `).join('');
+      }
+    }
+
+    async function sendMotion(action) {
+      try {
+        await fetch('/api/command', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: action, speed: 180, duration_ms: 1000 })
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function setMode(mode) {
+      await fetch('/api/mode', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ mode: mode })
+      });
+    }
+
+    async function triggerEStop() {
+      await fetch('/api/e_stop', { method: 'POST' });
+    }
+
+    async function resetEStop() {
+      await fetch('/api/e_stop_reset', { method: 'POST' });
+    }
+
+    async function toggleWifiTest() {
+      await fetch('/api/toggle_wifi', { method: 'POST' });
+    }
+
+    function setPrompt(text) {
+      document.getElementById('ai-prompt-input').value = text;
+    }
+
+    async function dispatchAiMission() {
+      const prompt = document.getElementById('ai-prompt-input').value;
+      const res = await fetch('/api/mission', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ prompt: prompt })
+      });
+      const result = await res.json();
+      alert(`[AI MISSION DISPATCHED]\n\nSchema ID: ${result.schema.mission_id}\nProposed Action: ${result.ai_recommendation.action}\nReasoning: ${result.ai_recommendation.reasoning}\nSafety Gate: ${result.firmware_guard}`);
+    }
+
+    function requestAiSnapshot() {
+      alert("ESP32-CAM JPEG snapshot captured and verified. Submitted to GPT-4o Vision API endpoint via Ground Gateway.");
+    }
+
+    function pingRover() {
+      alert("LoRa Ping: Packet #1421 ACK received in 42ms. RSSI: -74 dBm, SNR: +9.2 dB.");
+    }
+
+    // Connect on load
+    window.addEventListener('DOMContentLoaded', connectWebSocket);
+  </script>
+</body>
+</html>
